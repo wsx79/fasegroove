@@ -2,7 +2,7 @@
 
 **Dove sta:** `common/` in questo repo; `scripts/sync.sh` lo copia in ogni prodotto come `ThirdParty/fasegroove-common/` (ogni prodotto lo compila dalla sua copia, CMake: sorgenti + `target_include_directories`), `scripts/check.sh` dice se una copia differisce. Le differenze per prodotto passano da `FaseGroove::ProductInfo` (`common/ProductInfo.h`), definito in `Source/Product.cpp` di ogni prodotto, insieme a `Branding::appName/tagline/sourceUrl` e `Localisation::productTranslations()`. Non modificare le copie in `ThirdParty/`.
 
-**Riepilogo (ottobre 2026):** fatti 1, 6, 7, 8, 9, 10, 11, 12, 15, 16; in parte 2, 3, 4, 5; da fare 13, 14. Prodotti migrati: piano, drums, guitar (Updater, Localisation, Branding, tema, profili, circolo, test, MIDI, Link, parametri `raw()`, `RetireBin`; drums e guitar anche i widget dell'editor, piano `UpdateOverlay`), arranger (tema, circolo, Branding; motori vendorizzati sincronizzati da `scripts/sync-engines.py`).
+**Riepilogo (ottobre 2026):** fatti 1, 6, 7, 8, 9, 10, 11, 12, 15, 16; in parte 2, 3, 4, 5; da fare 13, 14. Prodotti migrati: piano, drums, guitar (Updater, Localisation, Branding, tema, profili, circolo, test, MIDI, Link, parametri `raw()`, `RetireBin`; drums e guitar anche i widget dell'editor, piano `UpdateOverlay`; `PlayClock.h` per playhead e luci del passo nei tre), arranger (tema, circolo, Branding; motori vendorizzati sincronizzati da `scripts/sync-engines.py`).
 
 Fonti: report-condiviso.md + le voci condivise di report-piano.md (P), report-drums.md (D) e report-guitar.md (G).
 Repo: piano = fasegroovepiano, drums = fasegroovedrums, guitar = fasegrooveguitar. Ordine: beneficio/rischio decrescente.
