@@ -2,7 +2,7 @@
 
 **Dove sta:** `common/` in questo repo; `scripts/sync.sh` lo copia in ogni prodotto come `ThirdParty/fasegroove-common/` (ogni prodotto lo compila dalla sua copia, CMake: sorgenti + `target_include_directories`), `scripts/check.sh` dice se una copia differisce. Le differenze per prodotto passano da `FaseGroove::ProductInfo` (`common/ProductInfo.h`), definito in `Source/Product.cpp` di ogni prodotto, insieme a `Branding::appName/tagline/sourceUrl` e `Localisation::productTranslations()`. Non modificare le copie in `ThirdParty/`.
 
-**Riepilogo (ottobre 2026):** fatti 1, 6, 7, 9, 11, 12; in parte 2, 4, 5 (e un fix di 3); da fare 3, 8, 10, 13, 14, 15, 16. Prodotti migrati: piano, drums, guitar (Updater, Localisation, Branding, tema, profili, circolo, test, MIDI, Link), arranger (tema, circolo, Branding).
+**Riepilogo (ottobre 2026):** fatti 1, 6, 7, 8, 9, 10, 11, 12, 16; in parte 2, 4, 5 (e un fix di 3); da fare 3, 13, 14, 15. Prodotti migrati: piano, drums, guitar (Updater, Localisation, Branding, tema, profili, circolo, test, MIDI, Link, parametri `raw()`, `RetireBin`), arranger (tema, circolo, Branding; motori vendorizzati sincronizzati da `scripts/sync-engines.py`).
 
 Fonti: report-condiviso.md + le voci condivise di report-piano.md (P), report-drums.md (D) e report-guitar.md (G).
 Repo: piano = fasegroovepiano, drums = fasegroovedrums, guitar = fasegrooveguitar. Ordine: beneficio/rischio decrescente.
@@ -49,7 +49,7 @@ Repo: piano = fasegroovepiano, drums = fasegroovedrums, guitar = fasegrooveguita
    - Note/rischi: rischio basso. bassFeel/bassGate/pianoReverb/pianoChorus (`FamilySoundProfiles.h:46-49`) servono solo a piano, `freeMode`/`setFreeMode` (`CircleOfFifths.h:37`, `.cpp:238, 298, 371`) solo a guitar: nel modulo si tengono, nei singoli repo non vanno tolti.
 
 8. **Accesso ai parametri `raw()`** (condiviso 8)
-   - **Stato: DA FARE** (rischio basso ma tocca decine di chiamate per prodotto; nessun cambiamento in questo giro).
+   - **Stato: FATTO** (piano, drums, guitar). `common/RawParameters.h` (`FaseGroove::RawParameters`): un array di `std::atomic<float>*` di tutti i parametri, riempito una volta nel costruttore (`cache (apvts)`), e una tabella ID -> indice (`std::string_view`: niente String costruite né ricerche nell'albero). Nei tre `float raw (juce::StringRef id) const { return rawParams (id); }`: stessa API, le chiamate non cambiano (vanno bene sia le costanti `const char*` sia gli ID numerati `juce::String`). Tolti in piano la mappa `paramValues`, in drums `cachedParams` con l'elenco degli ID e i due overload, in guitar la ricerca nell'APVTS a ogni chiamata. Restano per prodotto gli array per corsia/slot già esistenti (`laneParams`, `segmentParams`, `slotParams`...).
    - Cosa: enum di indici + array di `std::atomic<float>*` riempito una volta sola, stesso accessor nei tre.
    - File: piano `PluginProcessor.cpp:1078-1081` (deref senza controllo); drums `298-330`; guitar `304-309`.
    - Note/rischi: rischio basso, ma tocca decine di chiamate. In drums è già stato fatto solo il confronto per puntatore prima di `strcmp` (API invariata).
@@ -61,7 +61,7 @@ Repo: piano = fasegroovepiano, drums = fasegroovedrums, guitar = fasegrooveguita
    - Note/rischi: rischio basso.
 
 10. **Wrapper di Timer** (condiviso 11)
-    - **Stato: DA FARE** (Refresher/LinkTimer/PatternTimer invariati; `RetireBin<T>` di drums non ancora portato in guitar).
+    - **Stato: FATTO.** `juce::TimedCallback` (JUCE 8.0.9) al posto di `Refresher` in piano (`editRefresher`, `linkRefresher`, `liveKeyRunner`, il cui corpo è ora `runLiveKeys()`) e di `LinkTimer`/`PatternTimer` in drums e guitar; intervalli, avvio e arresto invariati. `RetireBin<T>` c'era già anche in guitar (identico a drums, per il pattern preparato di guitar 0.10.1): spostato in `common/RetireBin.h` (`FaseGroove::RetireBin`, con un `TimedCallback` interno) e usato dai due (in drums anche per i campioni).
     - Cosa: `juce::TimedCallback` (JUCE 8) al posto di `Refresher` (piano `PluginProcessor.h:411`), `LinkTimer` e `PatternTimer` (drums/guitar). In drums i due bin per gli shared_ptr ritirati sono già un solo `RetireBin<T>`: da riusare in guitar quando ci arriva il pattern preparato (G2).
     - Note/rischi: rischio basso.
 
@@ -96,6 +96,6 @@ Fonte: report-arranger.md (A31) + confronto dei file dopo l'allineamento dei mot
     - Note/rischi: rischio medio: l'arranger deve restare bit-identico (`verify-midi.py`, club audit).
 
 16. **Script di sincronizzazione dei motori vendorizzati** (A31)
-    - **Stato: DA FARE.** I motori vendorizzati divergono da HEAD dei plugin; in questo giro le correzioni di drums (snare Afro) e guitar (parte di accordi sempre udibile) sono state applicate a mano come patch.
+    - **Stato: FATTO.** `scripts/sync-engines.py` nell'arranger: per ogni plugin fonde a tre vie (commit dell'ultima sincronizzazione in `ThirdParty/ENGINE_VERSIONS`, file vendorizzato, HEAD del plugin) `Source/engine/*` e `Source/Guide*.h`; tiene le modifiche dell'arranger, applica quelle del plugin e lascia intatto un plugin con conflitti, elencandoli. `--check` esce con 1 se un motore è indietro, in conflitto o modificato senza registrarlo; `--record [--synced]` registra le modifiche (dopo un cambio voluto o un conflitto risolto a mano). Le modifiche proprie dell'arranger sono descritte in `ThirdParty/ENGINE_PATCHES.md` e salvate esatte in `ThirdParty/engine-patches/<plugin>.diff` (piano `separateBass`, `bassLineOverride`, `GuideVoice` centrato; drums Jackin' house; guitar `stepsPerChord`; funzioni non usate tolte). Stato (`--check`): piano 1de302a (0.31.2), drums c1809ee (0.21.0), guitar a327a35 (0.10.3) in sync; nessun file del motore cambiato, MIDI invariato. Prova: dalla base drums 0.20.1 lo script riapplica da solo snare Afro e snare del dado; da guitar 0.10.1 segnala il conflitto su `makeRandomLane` (tolta nell'arranger, cambiata nel plugin), risolto tenendo la versione dell'arranger. Il confronto di `FamilyTheme.h` resta a `scripts/check.sh` e `verify-family.py` (il tema è nel modulo comune). Lo script non è in ctest: servono i repo dei plugin accanto.
     - Cosa: `scripts/sync-engines.py` nell'arranger: per ogni plugin applica `git diff <versione vendorizzata>..HEAD -- Source/engine Source/Guide*.h` su `ThirdParty/*/Source` e segnala i conflitti; un test confronta `FamilyTheme.h` e la versione registrata. Tenere in un file le modifiche proprie dell'arranger (piano `separateBass`, cambio di lunghezza degli accordi di guitar).
     - Note/rischi: rischio basso. Caso reale: `GrooveEngine::sameSettings` di piano 0.31.1 non compila sul vendorizzato (manca `bassGate`/`editedLoop` in `GrooveSettings`); serve solo a processor/editor, quindi non è stato portato. Drums 0.20.1 e guitar 0.10.1 (gruppo preparato fuori dal thread audio) sono portati, con MIDI identico.
