@@ -11,21 +11,51 @@ import re
 import sys
 
 
+def entries(files):
+    # Tokens preserve comments/URLs and support multiline rows and adjacent C++
+    # string literals. Counting strings per physical line misses valid entries.
+    token_pattern = re.compile(r'//[^\n]*|/\*[\s\S]*?\*/|"(?:[^"\\]|\\.)*"|[{},]|\S')
+    for path in files:
+        text = path.read_text(encoding='utf-8')
+        fields = None
+        parts = []
+        location = str(path)
+        for match in token_pattern.finditer(text):
+            token = match.group()
+            if token.startswith(('//', '/*')):
+                continue
+            if token == '{' and fields is None:
+                fields = []
+                parts = []
+                location = f"{path}:{text.count(chr(10), 0, match.start()) + 1}"
+            elif token.startswith('"') and fields is not None:
+                parts.append(json.loads(token))
+            elif token in (',', '}') and fields is not None:
+                if parts:
+                    fields.append(''.join(parts))
+                    parts = []
+                elif token == ',':
+                    raise ValueError(f'{location}: empty translation column')
+                if token == '}':
+                    if len(fields) != 6:
+                        raise ValueError(f'{location}: expected six translation columns')
+                    yield tuple(fields), location
+                    fields = None
+            elif token == ',' and fields is None:
+                continue
+            else:
+                raise ValueError(f'{location}: unexpected translation token {token!r}')
+        if fields is not None:
+            raise ValueError(f'{location}: unfinished translation row')
+
+
 def rows(files):
     seen = {}
-    for path in files:
-        for number, line in enumerate(path.read_text(encoding='utf-8').splitlines(), 1):
-            if not line.lstrip().startswith('{'):
-                continue
-            strings = re.findall(r'"(?:[^"\\]|\\.)*"', line)
-            if len(strings) != 6:
-                raise ValueError(f'{path}:{number}: expected six translation columns')
-            values = tuple(json.loads(value) for value in strings)
-            key = values[0]
-            if key in seen:
-                old = seen[key]
-                raise ValueError(f'{path}:{number}: duplicate key {key!r}; first at {old}')
-            seen[key] = f'{path}:{number}'
+    for values, location in entries(files):
+        key = values[0]
+        if key in seen:
+            raise ValueError(f'{location}: duplicate key {key!r}; first at {seen[key]}')
+        seen[key] = location
     return seen
 
 

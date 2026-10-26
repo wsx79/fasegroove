@@ -110,6 +110,15 @@ class Tools(unittest.TestCase):
         self.assertNotEqual(checked.returncode, 0)
         self.assertIn('DIFFERS  fasegroovelead', checked.stdout)
 
+    def test_multiline_and_adjacent_cpp_literals(self):
+        catalog = self.root / 'multiline.inc'
+        catalog.write_text('{ "Ke" "y", // explanation\n'
+                           '  "IT", "ES", "FR", "DE", "PT" },\n')
+        self.assertEqual(list(translations.rows([catalog])), ['Key'])
+        catalog.write_text(catalog.read_text() + '{ "Key", "I", "E", "F", "D", "P" },')
+        with self.assertRaisesRegex(ValueError, 'duplicate key'):
+            translations.rows([catalog])
+
     def test_catalog_duplicate_and_intentional_common_override(self):
         common = self.module / 'CommonTranslations.inc'
         row = '{ ' + ', '.join(json.dumps(v) for v in ['Key', 'IT', 'ES', 'FR', 'DE', 'PT']) + ' },\n'
