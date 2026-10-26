@@ -1,0 +1,10 @@
+name: Check shared tooling
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  tools:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 tests/test_tools.py

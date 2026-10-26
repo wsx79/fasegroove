@@ -5,7 +5,7 @@ set -uo pipefail
 here="$(cd "$(dirname "$0")/.." && pwd)"
 products=("$@")
 if [ ${#products[@]} -eq 0 ]; then
-    for name in fasegroovepiano fasegroovedrums fasegrooveguitar fasegroovearranger; do
+    for name in fasegroovepiano fasegroovedrums fasegrooveguitar fasegroovearranger fasegroovelead; do
         [ -d "$here/../$name" ] && products+=("$here/../$name")
     done
 fi
@@ -17,7 +17,11 @@ for repo in "${products[@]}"; do
         echo "MISSING  $name"; status=1; continue
     fi
     if out="$(diff -rq "$here/common" "$dest")"; then
-        echo "in sync  $name"
+        if python3 "$here/common/VerifyModule.py" --module "$dest"; then
+            echo "in sync  $name"
+        else
+            status=1
+        fi
     else
         echo "DIFFERS  $name"; echo "$out" | sed 's/^/    /'; status=1
     fi
